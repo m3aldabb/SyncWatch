@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SyncWatch">
+<meta name="theme-color" content="#000000">
+<title>SyncWatch</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
+  :root { --bg: #080808; --surface: #111; --surface2: #1a1a1a; --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14); --text: #fff; --muted: #555; --muted2: #888; --green: #4ade80; --amber: #f59e0b; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+  .app { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; }
+  .screen { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 320px; }
+  .screen.active { display: flex; }
+  .wordmark { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.3em; color: var(--muted); text-transform: uppercase; margin-bottom: 48px; }
+  .hero-title { font-size: 32px; font-weight: 300; line-height: 1.2; text-align: center; margin-bottom: 12px; letter-spacing: -0.5px; }
+  .hero-sub { font-size: 14px; color: var(--muted2); text-align: center; line-height: 1.6; margin-bottom: 32px; }
+  .btn { width: 100%; padding: 15px 20px; border-radius: 12px; border: none; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; transition: transform 0.12s, background 0.1s; margin-bottom: 10px; }
+  .btn:hover { opacity: 0.88; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: #fff; color: #000; }
+  .btn-primary:hover { background: #ececec; opacity: 1; }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 0.5px solid var(--border2); }
+  .btn-secondary:hover { background: var(--surface2); opacity: 1; }
+
+  /* Saved rooms */
+  .saved-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; width: 100%; margin-bottom: 10px; }
+  .saved-rooms { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .saved-room { width: 100%; display: flex; align-items: center; background: var(--surface); border: 0.5px solid var(--border2); border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: background 0.1s; gap: 12px; }
+  .saved-room:hover { background: var(--surface2); }
+  .saved-room:active { transform: scale(0.98); }
+  .saved-room-code { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; letter-spacing: 0.15em; flex: 1; }
+  .saved-room-meta { font-size: 12px; color: var(--muted); }
+  .saved-room-del { font-size: 20px; color: var(--muted); padding: 4px 4px 4px 8px; cursor: pointer; transition: color 0.1s; line-height: 1; }
+  .saved-room-del:hover { color: #f87171; }
+  .divider { width: 100%; display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; }
+  .divider-line { flex: 1; height: 0.5px; background: var(--border); }
+  .divider-text { font-size: 12px; color: var(--muted); }
+
+  /* Room */
+  .screen-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.25em; color: var(--muted); text-transform: uppercase; margin-bottom: 24px; }
+  .code-display { font-family: 'DM Mono', monospace; font-size: 48px; font-weight: 500; letter-spacing: 0.2em; margin-bottom: 6px; }
+  .code-hint { font-size: 13px; color: var(--muted); margin-bottom: 24px; text-align: center; }
+  .status-pill { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 0.5px solid var(--border); border-radius: 100px; padding: 8px 16px; margin-bottom: 32px; }
+  .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); flex-shrink: 0; }
+  .pill-dot.connected { background: var(--green); animation: none; }
+  .pill-dot.waiting { animation: blink 1.4s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  .pill-text { font-size: 13px; color: var(--muted2); }
+  .remote { width: 100%; display: none; flex-direction: column; gap: 10px; }
+  .remote.visible { display: flex; }
+  .partner-msg { font-size: 12px; color: var(--green); text-align: center; min-height: 16px; margin-bottom: 2px; opacity: 0; transition: opacity 0.2s; }
+  .partner-msg.show { opacity: 1; }
+  .latency-badge { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); text-align: center; min-height: 14px; margin-bottom: 4px; }
+  .btn-row { display: flex; gap: 10px; }
+  .r-btn { flex: 1; aspect-ratio: 1; border-radius: 16px; border: 0.5px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; transition: transform 0.08s, background 0.1s; }
+  .r-btn:hover { background: var(--surface2); border-color: var(--border2); }
+  .r-btn:active { transform: scale(0.93); }
+  .r-btn.big { background: #fff; color: #000; border-color: transparent; }
+  .r-btn.big:hover { background: #ececec; }
+  .r-btn.big:active { background: #ddd; }
+  .r-icon { font-size: 26px; line-height: 1; }
+  .r-label { font-size: 10px; font-weight: 500; color: var(--muted); letter-spacing: 0.05em; }
+  .r-btn.big .r-label { color: rgba(0,0,0,0.4); }
+
+  /* Join */
+  .join-input { width: 100%; padding: 20px; border-radius: 14px; border: 0.5px solid var(--border2); background: var(--surface); color: var(--text); font-family: 'DM Mono', monospace; font-size: 32px; font-weight: 500; text-align: center; letter-spacing: 0.3em; outline: none; margin-bottom: 16px; user-select: text; }
+  .join-input::placeholder { color: var(--muted); letter-spacing: 0.05em; font-size: 16px; font-family: 'DM Sans', sans-serif; font-weight: 400; }
+  .join-input:focus { border-color: rgba(255,255,255,0.3); }
+  .back-link { font-size: 13px; color: var(--muted); cursor: pointer; margin-top: 20px; padding: 8px; transition: color 0.1s; }
+  .back-link:hover { color: var(--muted2); }
+
+  .flash { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: rgba(255,255,255,0.04); }
+  .flash.go { animation: flashAnim 0.25s ease-out forwards; }
+  @keyframes flashAnim { 0%{opacity:1} 100%{opacity:0} }
+  .toast { position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 32px); left: 50%; transform: translateX(-50%) translateY(12px); background: var(--surface2); border: 0.5px solid var(--border2); border-radius: 100px; padding: 10px 22px; font-size: 14px; font-weight: 500; white-space: nowrap; opacity: 0; pointer-events: none; }
+  .toast.go { animation: toastAnim 2s ease forwards; }
+  @keyframes toastAnim { 0%{opacity:0;transform:translateX(-50%) translateY(12px)} 12%{opacity:1;transform:translateX(-50%) translateY(0)} 75%{opacity:1} 100%{opacity:0;transform:translateX(-50%) translateY(-6px)} }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Home -->
+  <div class="screen active" id="s-home">
+    <div class="wordmark">SyncWatch</div>
+    <div class="hero-title">Watch together,<br>perfectly in sync.</div>
+    <div class="hero-sub">One tap. Both TVs respond.<br>Zero delay.</div>
+    <div id="saved-section" style="width:100%;display:none;">
+      <div class="saved-label">Your rooms</div>
+      <div class="saved-rooms" id="saved-list"></div>
+      <div class="divider"><div class="divider-line"></div><div class="divider-text">or</div><div class="divider-line"></div></div>
+    </div>
+    <button class="btn btn-primary" onclick="doCreate()">Create a room</button>
+    <button class="btn btn-secondary" onclick="showScreen('s-join')">Join a room</button>
+  </div>
+
+  <!-- Room -->
+  <div class="screen" id="s-room">
+    <div class="screen-label">Room</div>
+    <div class="code-display" id="room-code">----</div>
+    <div class="code-hint" id="room-hint">Share this code with your partner</div>
+    <div class="status-pill">
+      <div class="pill-dot waiting" id="pill-dot"></div>
+      <div class="pill-text" id="pill-text">Waiting for partner...</div>
+    </div>
+    <div class="remote" id="remote">
+      <div class="partner-msg" id="partner-msg"></div>
+      <div class="latency-badge" id="latency-badge"></div>
+      <div class="btn-row">
+        <button class="r-btn" onclick="sendCmd('rewind')"><div class="r-icon">⏪</div><div class="r-label">-10s</div></button>
+        <button class="r-btn big" onclick="togglePlay()"><div class="r-icon" id="pp-icon">▶</div><div class="r-label" id="pp-label" style="color:rgba(0,0,0,0.4)">Play</div></button>
+        <button class="r-btn" onclick="sendCmd('forward')"><div class="r-icon">⏩</div><div class="r-label">+10s</div></button>
+      </div>
+    </div>
+    <div class="back-link" onclick="goHome()">← Leave room</div>
+  </div>
+
+  <!-- Join -->
+  <div class="screen" id="s-join">
+    <div class="screen-label">Join a room</div>
+    <input class="join-input" id="join-input" placeholder="Enter room code" maxlength="4"
+      oninput="this.value=this.value.toUpperCase()" autocomplete="off" autocorrect="off"
+      autocapitalize="characters" spellcheck="false">
+    <button class="btn btn-primary" onclick="doJoin()">Join</button>
+    <div class="back-link" onclick="showScreen('s-home')">← Back</div>
+  </div>
+
+</div>
+<div class="flash" id="flash"></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyCK-I5fA0ZoZNVHfDDvztW0dqbwUxnmUEs",
+  authDomain: "syncwatch-ace46.firebaseapp.com",
+  databaseURL: "https://syncwatch-ace46-default-rtdb.firebaseio.com",
+  projectId: "syncwatch-ace46",
+  storageBucket: "syncwatch-ace46.firebasestorage.app",
+  messagingSenderId: "206993420282",
+  appId: "1:206993420282:web:53720ef8f3f8657c4cbe43"
+});
+const db = firebase.database();
+
+let roomRef = null;
+let myId = null;
+let isPlaying = false;
+let currentCode = null;
+let heartbeatInterval = null;
+
+// ── Saved rooms ──────────────────────────────────────────────
+function getSaved() { try { return JSON.parse(localStorage.getItem('sw_rooms')||'[]'); } catch { return []; } }
+function saveRoom(code) {
+  let r = getSaved().filter(x => x.code !== code);
+  r.unshift({ code, ts: Date.now() });
+  localStorage.setItem('sw_rooms', JSON.stringify(r.slice(0,5)));
+}
+function deleteRoom(code) {
+  localStorage.setItem('sw_rooms', JSON.stringify(getSaved().filter(x => x.code !== code)));
+  renderSaved();
+}
+function timeAgo(ts) {
+  const m = Math.floor((Date.now()-ts)/60000);
+  if (m < 2) return 'just now';
+  if (m < 60) return m+'m ago';
+  const h = Math.floor(m/60);
+  if (h < 24) return h+'h ago';
+  return Math.floor(h/24)+'d ago';
+}
+function renderSaved() {
+  const rooms = getSaved();
+  const section = document.getElementById('saved-section');
+  const list = document.getElementById('saved-list');
+  if (!rooms.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  list.innerHTML = '';
+  rooms.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'saved-room';
+    row.innerHTML = `<div class="saved-room-code">${r.code}</div><div class="saved-room-meta">${timeAgo(r.ts)}</div><div class="saved-room-del" onclick="event.stopPropagation();deleteRoom('${r.code}')">×</div>`;
+    row.onclick = () => setupRoom(r.code);
+    list.appendChild(row);
+  });
+}
+
+// ── Navigation ───────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 's-join') { document.getElementById('join-input').value = ''; setTimeout(() => document.getElementById('join-input').focus(), 100); }
+  if (id === 's-home') renderSaved();
+}
+
+// ── Room ─────────────────────────────────────────────────────
+function doCreate() {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let code = '';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random()*chars.length)];
+  setupRoom(code);
+}
+
+function doJoin() {
+  const code = document.getElementById('join-input').value.trim().toUpperCase();
+  if (code.length !== 4) { showToast('Enter a 4-letter code'); return; }
+  setupRoom(code);
+}
+
+function setupRoom(code) {
+  cleanup();
+  currentCode = code;
+  myId = Math.random().toString(36).substring(2, 10);
+  isPlaying = false;
+
+  document.getElementById('room-code').textContent = code;
+  document.getElementById('room-hint').textContent = 'Share this code with your partner';
+  document.getElementById('pill-dot').className = 'pill-dot waiting';
+  document.getElementById('pill-text').textContent = 'Waiting for partner...';
+  document.getElementById('remote').classList.remove('visible');
+  document.getElementById('latency-badge').textContent = '';
+  document.getElementById('pp-icon').textContent = '▶';
+  document.getElementById('pp-label').textContent = 'Play';
+  showScreen('s-room');
+  saveRoom(code);
+
+  roomRef = db.ref('rooms/' + code);
+
+  // Use heartbeat instead of onDisconnect — more reliable when screen locks
+  // onDisconnect only fires on true TCP disconnect, not screen lock
+  const myRef = roomRef.child('members/' + myId);
+  
+  function writePresence() {
+    myRef.set({ online: true, ts: Date.now() });
+  }
+  writePresence();
+  // Heartbeat every 5s keeps us alive through screen locks
+  heartbeatInterval = setInterval(writePresence, 5000);
+  // Still use onDisconnect as backup for true disconnects
+  myRef.onDisconnect().remove();
+
+  // Watch members — connected if anyone else present in last 15s
+  roomRef.child('members').on('value', snap => {
+    const members = snap.val() || {};
+    const now = Date.now();
+    const others = Object.entries(members)
+      .filter(([id, v]) => id !== myId && v && (now - (v.ts||0)) < 15000);
+    const connected = others.length > 0;
+    document.getElementById('pill-dot').className = 'pill-dot ' + (connected ? 'connected' : 'waiting');
+    document.getElementById('pill-text').textContent = connected ? 'Connected — synced' : 'Waiting for partner...';
+    document.getElementById('remote').classList.toggle('visible', connected);
+    if (connected) measureLatency();
+  });
+
+  // Watch commands
+  roomRef.child('cmd').on('value', snap => {
+    const val = snap.val();
+    if (!val || val.from === myId) return;
+    const latency = Date.now() - (val.t || Date.now());
+    if (latency > 0 && latency < 5000) document.getElementById('latency-badge').textContent = latency + 'ms';
+    applyCommand(val.action, true);
+  });
+
+  // Page visibility — re-register presence when tab becomes visible again
+  document.addEventListener('visibilitychange', handleVisibility);
+}
+
+function handleVisibility() {
+  if (document.visibilityState === 'visible' && roomRef && myId) {
+    roomRef.child('members/' + myId).set({ online: true, ts: Date.now() });
+  }
+}
+
+function measureLatency() {
+  const start = Date.now();
+  db.ref('.info/connected').once('value', () => {
+    document.getElementById('latency-badge').textContent = (Date.now()-start) + 'ms';
+  });
+}
+
+function sendCmd(action) {
+  if (!roomRef) return;
+  roomRef.child('cmd').set({ action, from: myId, t: Date.now() });
+  applyCommand(action, false);
+}
+
+function togglePlay() { sendCmd(isPlaying ? 'pause' : 'play'); }
+
+function applyCommand(action, fromPartner) {
+  if (action === 'play') { isPlaying = true; document.getElementById('pp-icon').textContent = '⏸'; document.getElementById('pp-label').textContent = 'Pause'; }
+  else if (action === 'pause') { isPlaying = false; document.getElementById('pp-icon').textContent = '▶'; document.getElementById('pp-label').textContent = 'Play'; }
+  if (fromPartner) {
+    const el = document.getElementById('partner-msg');
+    el.textContent = {play:'Partner played',pause:'Partner paused',rewind:'Partner rewound',forward:'Partner skipped'}[action]||'';
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2000);
+  }
+  doFlash();
+  showToast({play:'▶  Play',pause:'⏸  Pause',rewind:'⏪  -10s',forward:'⏩  +10s'}[action]||action);
+}
+
+function cleanup() {
+  if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+  if (roomRef && myId) { roomRef.child('members/' + myId).remove(); }
+  if (roomRef) { roomRef.off(); roomRef = null; }
+  document.removeEventListener('visibilitychange', handleVisibility);
+  myId = null;
+}
+
+function goHome() {
+  cleanup();
+  showScreen('s-home');
+}
+
+function doFlash() {
+  const f = document.getElementById('flash');
+  f.className='flash'; void f.offsetWidth; f.className='flash go';
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.className='toast'; void t.offsetWidth; t.className='toast go';
+}
+
+renderSaved();
+</script>
+</body>
+</html>
